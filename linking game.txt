@@ -1,0 +1,140 @@
+以下是两个场景的代码：
+首先是创建图片格子场景，保存为 pictureTile.tscn：
+extends CenterContainer
+# 导出变量，方便在编辑器中设置
+@export var tile_texture: Texture2D
+@export var tile_id: int = 0  # 用于标识图片类型
+
+# 场景中的子节点
+@onready var texture_rect = $TextureRect
+@onready var button = $Button
+
+func _ready():
+	# 设置图片
+	if tile_texture:
+		texture_rect.texture = tile_texture
+
+	# 连接按钮信号
+	button.pressed.connect(_on_button_pressed)
+
+# 设置图片ID和纹理
+func setup(id: int, texture: Texture2D):
+	tile_id = id
+	$TextureRect.texture = texture
+
+
+# 按钮点击处理
+func _on_button_pressed():
+	print("Tile clicked: ", tile_id)
+	# 这里可以添加点击后的逻辑，比如高亮显示等
+场景结构：
+CenterContainer (pictureTile.gd)
+├── TextureRect (显示图片)
+└── Button (覆盖整个格子，用于点击检测)
+
+主游戏场景，保存为 MainGame.tscn：
+extends Node2D
+# 导出变量
+@export var grid_columns: int = 8
+@export var grid_rows: int = 14
+#@export var tile_size: Vector2 = Vector2(40, 40)  # 每个格子的大小
+
+# 场景中的子节点
+@onready var grid_container = $CanvasLayer/GridContainer    #$GridContainer
+
+# 预加载图片资源
+var tile_textures = [
+	preload("res://恐龙图案/屏幕截图 2025-03-12 152048.png"),
+	preload("res://恐龙图案/屏幕截图 2025-03-12 152914.png"),
+	preload("res://恐龙图案/屏幕截图 2025-03-12 153243.png"),
+	preload("res://恐龙图案/屏幕截图 2025-03-12 191109.png"),
+	preload("res://恐龙图案/屏幕截图 2025-03-12 191258.png"),
+	preload("res://恐龙图案/屏幕截图 2025-03-12 191544.png"),
+	preload("res://恐龙图案/屏幕截图 2025-03-12 191717.png"),
+	preload("res://恐龙图案/屏幕截图 2025-03-12 192156.png"),
+	# ... 添加更多图片资源
+]
+
+func _ready():
+	# 初始化棋盘
+	initialize_board()
+
+# 初始化棋盘
+func initialize_board():
+	# 设置GridContainer属性
+	grid_container.columns = grid_columns
+	# 关键修改1：设置GridContainer的锚点和大小
+	grid_container.anchor_right = 1.0  # 宽度填满父节点
+	grid_container.anchor_bottom = 1.0  # 高度填满父节点
+	
+	# 计算需要的图片对数量 (112个格子，需要56对不同的图片)
+	var repeats = 14  # 每张图出现14次
+	
+	var pairs_needed = (grid_columns * grid_rows)/float(repeats)
+	var available_textures = tile_textures.size()
+	
+	# 检查是否有足够的图片类型
+	if available_textures < pairs_needed:
+		push_error("Not enough tile textures! Need at least %d types." % pairs_needed)
+		return
+	
+	# 创建图片ID列表 (每张图片出现两次)
+	var tile_ids = []
+	for i in range(pairs_needed):
+		tile_ids.append(i)
+		tile_ids.append(i)
+		tile_ids.append(i)
+		tile_ids.append(i)
+		tile_ids.append(i)
+		tile_ids.append(i)
+		tile_ids.append(i)
+		tile_ids.append(i)
+		tile_ids.append(i)
+		tile_ids.append(i)
+		tile_ids.append(i)
+		tile_ids.append(i)
+		tile_ids.append(i)
+		tile_ids.append(i)
+	
+	# 随机打乱ID顺序
+	tile_ids.shuffle()
+	
+	# 动态生成格子
+	for i in range(grid_columns * grid_rows):
+		# 加载格子场景
+		var tile_scene = preload("res://pictureTile.tscn")
+		
+		var tile_instance = tile_scene.instantiate()
+		
+		# 设置格子属性
+		var texture_index = tile_ids[i]
+		tile_instance.setup(texture_index, tile_textures[texture_index])
+		
+		# 设置格子大小custom_minimum_size,tile_size
+		#tile_instance.custom_minimum_size= tile_size
+		# 关键修改3：设置格子尺寸和布局行为
+		# tile_instance.custom_minimum_size = tile_size
+		# tile_instance.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# tile_instance.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		
+		# 关键修改4：调整TextureRect的尺寸
+		# var texture_rect = tile_instance.get_node("TextureRect")
+		# texture_rect.expand_mode = 0
+		# texture_rect.stretch_mode = TextureRect.STRETCH_SCALE
+
+		# 添加到GridContainer
+		grid_container.add_child(tile_instance)
+		
+ #关键修改5：确保GridContainer正确计算布局
+	await get_tree().process_frame
+	grid_container.queue_sort()
+
+
+# 清空棋盘
+func clear_board():
+	for child in grid_container.get_children():
+		child.queue_free()
+场景结构：
+Node2D (MainGame.gd)
+└──CanvasLayer
+        └── GridContainer
